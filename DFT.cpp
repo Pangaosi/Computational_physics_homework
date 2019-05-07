@@ -41,7 +41,7 @@ void   trans(int n,int m,complex *W,complex *Wt)//原本为n*m 转置为 m*n
     {
         for(int j=0;j<n;j++)
         {
-            //Wt[i][j]  i*n+j
+            //Wt[i][j]  i*n+j W[j][i]  j*m+i
             Wt[i*n+j].re=W[j*m+i].re;
             Wt[i*n+j].im=W[j*m+i].im;
         }
@@ -49,7 +49,7 @@ void   trans(int n,int m,complex *W,complex *Wt)//原本为n*m 转置为 m*n
 
 }
 
-void showRE(int n,int m,complex *W)
+void showRE(int n,int m,complex *W) //打印 RE
 {
     for(int i=0;i<n;i++)
     {
@@ -67,12 +67,15 @@ void DFT_2D(int N,int M,complex *F,complex *W)
     {
         DFT(F,M,W+M*i);     
     }
-    trans(N,M,W,W);
+    int NM=N*M;
+    complex Wt[NM];
+    trans(N,M,W,Wt);
+    complex Wtt[NM];
     for(int j=0;j<M;j++)
     {
-        DFT(W,N,W+N*j);
+        DFT(Wt,N,Wtt+N*j);
     }
-    trans(M,N,W,W);
+    trans(M,N,Wtt,W);
 }
 
 int main()
