@@ -17,7 +17,7 @@ class complex
     }
 };
 
-void DFT(complex F[],int N,complex W[])
+void DFT(int N,complex *F,complex *W)
 {
     const double aa=1.0/sqrt(N);   
     for(int j=0;j<N;j++)
@@ -25,17 +25,17 @@ void DFT(complex F[],int N,complex W[])
         const double co=2*Pi*j/double(N);//coeffient
         for(int k=0;k<N;k++)
         {
-           double re=F[k].re;
-           double im=F[k].im;
-           W[j].re+=(cos(co*k)*re+sin(co*k)*im);
-           W[j].im+=(cos(co*k)*im-sin(co*k)*re);
+           double re=(F+k)->re;
+           double im=(F+k)->im;
+           (W+j)->re+=(cos(co*k)*re+sin(co*k)*im);
+           (W+j)->im+=(cos(co*k)*im-sin(co*k)*re);
         }
-        W[j].re*=aa;
-        W[j].im*=aa;
+        (W+j)->re*=aa;
+        (W+j)->im*=aa;
     }     
 } 
 
-void   trans(int n,int m,complex *W,complex *Wt)//原本为n*m 转置为 m*n
+void   trans(int n,int m,complex *W,complex *Wt)//原锟斤拷为n*m 转锟斤拷为 m*n
 {
     for(int i=0;i<m;i++)
     {
@@ -49,7 +49,7 @@ void   trans(int n,int m,complex *W,complex *Wt)//原本为n*m 转置为 m*n
 
 }
 
-void showRE(int n,int m,complex *W) //打印 RE
+void showRE(int n,int m,complex *W) //锟斤拷印 RE
 {
     for(int i=0;i<n;i++)
     {
@@ -61,11 +61,12 @@ void showRE(int n,int m,complex *W) //打印 RE
     }
 }
 
+
 void DFT_2D(int N,int M,complex *F,complex *W)
 {
     for(int i=0;i<N;i++)
     {
-        DFT(F,M,W+M*i);     
+        DFT(M,F+M*i,W+M*i);     
     }
     int NM=N*M;
     complex Wt[NM];
@@ -73,7 +74,7 @@ void DFT_2D(int N,int M,complex *F,complex *W)
     complex Wtt[NM];
     for(int j=0;j<M;j++)
     {
-        DFT(Wt,N,Wtt+N*j);
+        DFT(N,Wt+N*j,Wtt+N*j);
     }
     trans(M,N,Wtt,W);
 }
@@ -83,52 +84,54 @@ int main()
     int m=7;
     int N=1<<m;
     int NN=N*N;
-    complex F[N];
+/*    complex F[N];
     for(int i=0;i<N;i++)
     {  double x=i*2.0*Pi/N;
         F[i].re=sin(x)+sin(25*x+1)+sin(52*x+2);
         F[i].im=0;
-    }
+    } 
+    */
     complex F2[NN];complex W2[NN];
     for(int i=0;i<N;i++)
     {
         for(int j=0;j<N;j++)
         {
-            double x=2*Pi/N*j;
-            double y=2*Pi/N*i;
-            F2[N*i+j].re=sin(5*x+7*y);
+            double x=2*Pi/double(N)*double(j);
+            double y=2*Pi/double(N)*double(i);
+            F2[N*i+j].re=sin(5.0*x+7.0*y);
             F2[N*i+j].im=0;
         }
-    }
+    } 
     DFT_2D(N,N,F2,W2);
-    complex W[N];
-    DFT(F,N,W);
+    
 
     ofstream file1;
-    file1.open("DFT_2D.dat",ios::out);
+    file1.open("DFT_22D.dat",ios::out);
     for(int k=0;k<N;k++)
     {
         for(int p=0;p<N;p++)
-        {   double x=2*Pi/N*p;
-            double y=2*Pi/N*k;
-            file1<<x<<' '<<y<<' '<<W[k*N+p].re<<' '<<W[k*N+p].im<<endl;
+        {   
+            double x=2*Pi/double(N)*double(p);
+            double y=2*Pi/double(N)*double(k);
+            file1<<x<<' '<<y<<' '<<W2[k*N+p].re<<' '<<W2[k*N+p].im<<' '<<F2[k*N+p].re<<endl;
         }
         
     }
     file1.close();
     
-
-
-  /*  ofstream file1;
+/*
+    complex W[N];
+    DFT(F,N,W);
+    ofstream file1;
     file1.open("DFT.dat",ios::out);
     for(int k=0;k<N;k++)
     {
         file1<<k<<' '<<W[k].re<<' '<<W[k].im<<endl;
     }
     file1.close();
-   */
+*/   
 
  
-    system("pause");
+    
  return 0;   
 }
