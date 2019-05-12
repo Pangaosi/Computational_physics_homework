@@ -4,14 +4,15 @@
 #include<time.h>
 
 using namespace std;
-const int MN=8000;//蒙卡总次数
-const int MNP=1000;//前期蒙卡
-const double dw=0.5;//窗口
-const int L=1<<5;//L*L
+const int MN=50000;//蒙卡总次数
+const int MNP=10000;//前期蒙卡
+const double dw=1;//窗口
+const int L=1<<6;//L*L
 double T;//temperature
 const double M[3]={0,0,0};//磁化强度
 const double J=1;
-const double hz=0;//z方向h
+const double dd=2e-22;
+const double hz=0.01;//z方向h
 const double kb=1;
 
 
@@ -36,9 +37,9 @@ void initial(int n,int m,spin *sp) //n*m 2 dimention
     {
         for(int j=0;j<m;j++)
         {
-            int k=i*m+j;
-            (sp+k)->phi=1;//2*Pi*rand()/RAND_MAX;  //对 phi 随即初始化
-            sp[k].theta=acos(2.0*rand()/RAND_MAX-1); // 对 cos(theta) 随即初始化
+            //int k=i*m+j;
+            (sp+i*m+j)->phi=1;//2*Pi*rand()/RAND_MAX;  //对 phi 随即初始化
+            sp[i*m+j].theta=acos(2.0*rand()/RAND_MAX-1); // 对 cos(theta) 随即初始化
         }
     }
 }
@@ -78,7 +79,7 @@ double *cross(spin sp1,spin sp2,double *xyz3)
     xyz3[2]=xyz1[0]*xyz2[1]-xyz1[1]*xyz2[0];
     return xyz3;
 }
-
+/*
 double *D(int i,int j,int p,int q,double *xyz)//(i,j,0)->(p,q,0)
 {
     double *Dij=xyz;
@@ -88,7 +89,7 @@ double *D(int i,int j,int p,int q,double *xyz)//(i,j,0)->(p,q,0)
     Dij[2]=0;
     return Dij;
 }
-
+*/
 void Magnetization(spin *sp,double *Mxyz)
 {   
     Mxyz[0]=0;Mxyz[1]=0;Mxyz[2]=0;
@@ -105,7 +106,7 @@ void Magnetization(spin *sp,double *Mxyz)
         }
     }
 }
-
+double Dd[3]={0,-1,0};
 double energy(spin *sp)
 {
     double sum=0;
@@ -116,8 +117,9 @@ double energy(spin *sp)
             int k=i*L+j;
             double xyz[3]={0,0,0};double x1[3]={0,0,0};double x2[3]={0,0,0};
             double x4[3]={0,0,0};double x5[3]={0,0,0};
+            double Dr[3]={1,0,0};double Du[3]={0,1,0};
             sum+=J*(dot(sp[k],sp[L*i+(j+1)%L])+dot(sp[k],sp[(k+L)%(L*L)]));//J*(Si.Sj)
-            sum+=dot(D(j,i,j+1,i,x1),cross(sp[k],sp[L*i+(j+1)%L],x4))+dot(D(j,i,j,i+1,x2),cross(sp[k],sp[(k+L)%(L*L)],x5));
+         //   sum+=dd*(dot(Dr,cross(sp[k],sp[L*i+(j+1)%L],x4))+dot(Du,cross(sp[k],sp[(k+L)%(L*L)],x5)));
             rpt2xyz(sp[k],xyz);
             sum+=hz*xyz[2];
         }
@@ -154,21 +156,22 @@ void MC(spin* sp)
             int k=rand()%(L*L); 
             int i=k/L;int j=k%L;//随即取点
             spin sp0;//临时变量sp0
-            sp0.phi=sp[k].phi+dw*(2.0*rand()/RAND_MAX-1);
+            sp0.phi=sp[k].phi+Pi*dw*(2.0*rand()/RAND_MAX-1);
             double costheta;
             costheta=cos(sp[k].theta)+dw*(2.0*rand()/RAND_MAX-1);
             if(costheta>1) costheta=2-costheta;
             if(costheta<-1) costheta=-2-costheta;
             sp0.theta=acos(costheta); //生成下一采样   
             
-            double x1[3]={0,0,0};double x2[3]={0,0,0};double x3[3]={0,0,0};double x4[3]={0,0,0};
+          //  double x1[3]={0,0,0};double x2[3]={0,0,0};double x3[3]={0,0,0};double x4[3]={0,0,0};
             double x5[3]={0,0,0};double x6[3]={0,0,0};double x7[3]={0,0,0};double x8[4]={0,0,0};
+            double Dr[3]={1,0,0};double Dl[3]={-1,0,0};double Du[3]={0,1,0};double Dd[3]={0,-1,0};
             double de=0;//能量变化 new-old
             de-=J*(dot(sp[k],sp[L*i+(j+1)%L])+dot(sp[k],sp[(k+L)%(L*L)])+dot(sp[k],sp[L*i+(L+j-1)%L])+dot(sp[k],sp[(k-L+L*L)%(L*L)]));
-            de-=dot(D(j,i,j+1,i,x1),cross(sp[k],sp[L*i+(j+1)%L],x5))+dot(D(j,i,j,i+1,x2),cross(sp[k],sp[(k+L)%(L*L)],x6))+dot(D(j,i,j-1,i,x3),cross(sp[k],sp[L*i+(L+j-1)%L],x7))+dot(D(j,i,j-1,i,x4),cross(sp[k],sp[(k-L+L*L)%(L*L)],x8));
+        //    de-=dot(Dr,cross(sp[k],sp[L*i+(j+1)%L],x5))+dot(Du,cross(sp[k],sp[(k+L)%(L*L)],x6))+dot(Dl,cross(sp[k],sp[L*i+(L+j-1)%L],x7))+dot(Dd,cross(sp[k],sp[(k-L+L*L)%(L*L)],x8));
             de-=hz*cos(sp[k].theta);
             de+=J*(dot(sp0,sp[L*i+(j+1)%L])+dot(sp0,sp[(k+L)%(L*L)])+dot(sp0,sp[L*i+(L+j-1)%L])+dot(sp0,sp[(k-L+L*L)%(L*L)]));
-            de+=dot(D(j,i,j+1,i,x1),cross(sp0,sp[L*i+(j+1)%L],x5))+dot(D(j,i,j,i+1,x2),cross(sp0,sp[(k+L)%(L*L)],x6))+dot(D(j,i,j-1,i,x3),cross(sp0,sp[L*i+(L+j-1)%L],x7))+dot(D(j,i,j-1,i,x4),cross(sp0,sp[(k-L+L*L)%(L*L)],x8));
+        //    de+=dot(Dr,cross(sp0,sp[L*i+(j+1)%L],x5))+dot(Du,cross(sp0,sp[(k+L)%(L*L)],x6))+dot(Dl,cross(sp0,sp[L*i+(L+j-1)%L],x7))+dot(Dd,cross(sp0,sp[(k-L+L*L)%(L*L)],x8));
             de+=hz*cos(sp0.theta);
 
             if(de<0||exp(-de/(kb*T))*RAND_MAX>rand())
@@ -207,7 +210,7 @@ int main()
     spin sp[LL];
     initial(L,L,sp);
 
-    for(T=2.5;T>0;T-=0.05)
+    for(T=10;T>2;T-=0.5)
     {
         cout<<T<<endl;
         MC(sp);
