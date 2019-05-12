@@ -7,13 +7,20 @@ using namespace std;
 const int MN=50000;//蒙卡总次数
 const int MNP=10000;//前期蒙卡
 const double dw=1;//窗口
-const int L=1<<6;//L*L
+const int L=1<<4;//L*L
 double T;//temperature
 const double M[3]={0,0,0};//磁化强度
 const double J=1;
 const double dd=2e-22;
 const double hz=0.01;//z方向h
 const double kb=1;
+double Dr[3]={1,0,0};
+double Dl[3]={-1,0,0};
+double Du[3]={0,1,0};
+double Dd[3]={0,-1,0};
+
+double x1[3]={0,0,0};double x2[3]={0,0,0};double x3[3]={0,0,0};double x4[3]={0,0,0};
+double x5[3]={0,0,0};double x6[3]={0,0,0};double x7[3]={0,0,0};double x8[4]={0,0,0};
 
 
 
@@ -22,10 +29,9 @@ const double Pi=4.0*atan(1);
 class spin   //自旋 状态  类
 {
     public:
-    double r,theta,phi;  //球坐标
+    double theta,phi;  //球坐标
     spin()
     {
-        r=1;
         theta=0;
         phi=0;
     }
@@ -38,7 +44,7 @@ void initial(int n,int m,spin *sp) //n*m 2 dimention
         for(int j=0;j<m;j++)
         {
             //int k=i*m+j;
-            (sp+i*m+j)->phi=1;//2*Pi*rand()/RAND_MAX;  //对 phi 随即初始化
+            (sp+i*m+j)->phi=2*Pi*rand()/RAND_MAX;  //对 phi 随即初始化
             sp[i*m+j].theta=acos(2.0*rand()/RAND_MAX-1); // 对 cos(theta) 随即初始化
         }
     }
@@ -74,11 +80,49 @@ double *cross(spin sp1,spin sp2,double *xyz3)
    // double xyz3[3]={0,0,0};
     rpt2xyz(sp1,xyz1);
     rpt2xyz(sp2,xyz2);
-    xyz3[0]=xyz1[1]*xyz2[2]-xyz1[2]*xyz2[1];
-    xyz3[1]=-xyz1[0]*xyz2[2]+xyz1[2]*xyz2[0];
-    xyz3[2]=xyz1[0]*xyz2[1]-xyz1[1]*xyz2[0];
+    double x1=xyz1[0];double x2=xyz1[1];double x3=xyz1[2];
+    double y1=xyz2[0];double y2=xyz1[1];double y3=xyz1[2];
+    xyz3[0]=x2*y3-x3*y2;
+    xyz3[1]=-x1*y3+x3*y1;
+    xyz3[2]=x1*y2-x2*y1;
     return xyz3;
 }
+
+int levi(int i,int j,int k)
+{
+    if ((j-i)*(k-j)*(i-k)==0)
+    {
+        return 0;
+    }
+    else if ((j-i)*(k-j)*(i-k)<0)
+    {
+        return -1;
+    }
+    else
+    {
+        return 1;
+    }
+}
+
+double scpro(double *D,spin sp1,spin sp2) //标量三重积
+{
+ double sum=0;
+ rpt2xyz(sp1,x1);
+ rpt2xyz(sp2,x2);
+    for(int i=0;i<3;i++)
+    {
+        for(int j=0;j<3;j++)
+        {
+            for(int k=0;k<3;k++)
+            {
+                sum+=levi(i+1,j+1,k+1)*D[i]*x1[j]*x2[k];
+            }
+        }
+    }
+    return sum;
+}
+
+
 /*
 double *D(int i,int j,int p,int q,double *xyz)//(i,j,0)->(p,q,0)
 {
@@ -93,20 +137,23 @@ double *D(int i,int j,int p,int q,double *xyz)//(i,j,0)->(p,q,0)
 void Magnetization(spin *sp,double *Mxyz)
 {   
     Mxyz[0]=0;Mxyz[1]=0;Mxyz[2]=0;
+    double xyz[3]={0,0,0};
     for(int i=0;i<L;i++)
     {
         for(int j=0;j<L;j++)
         {
             int k=i*L+j;
-            double xyz[3]={0,0,0};
             rpt2xyz(sp[k],xyz);
             Mxyz[0]+=xyz[0];
             Mxyz[1]+=xyz[1];
             Mxyz[2]+=xyz[2];   
         }
     }
+    Mxyz[0]/=L*L;
+    Mxyz[1]/=L*L;
+    Mxyz[2]/=L*L;
 }
-double Dd[3]={0,-1,0};
+//double Dd[3]={0,-1,0};
 double energy(spin *sp)
 {
     double sum=0;
@@ -117,14 +164,15 @@ double energy(spin *sp)
             int k=i*L+j;
             double xyz[3]={0,0,0};double x1[3]={0,0,0};double x2[3]={0,0,0};
             double x4[3]={0,0,0};double x5[3]={0,0,0};
-            double Dr[3]={1,0,0};double Du[3]={0,1,0};
+           
             sum+=J*(dot(sp[k],sp[L*i+(j+1)%L])+dot(sp[k],sp[(k+L)%(L*L)]));//J*(Si.Sj)
-         //   sum+=dd*(dot(Dr,cross(sp[k],sp[L*i+(j+1)%L],x4))+dot(Du,cross(sp[k],sp[(k+L)%(L*L)],x5)));
+            sum+=dd*(cross(sp[k],sp[L*i+(j+1)%L],x4)[0]+cross(sp[k],sp[(k+L)%(L*L)],x5)[1]);
+        //    sum+=dd*(dot(Dr,cross(sp[k],sp[L*i+(j+1)%L],x4))+dot(Du,cross(sp[k],sp[(k+L)%(L*L)],x5)));
             rpt2xyz(sp[k],xyz);
             sum+=hz*xyz[2];
         }
     }
-    return sum;
+    return sum/L/L;
 }
 /*
 void save(int n,int m,const spin *sp)//n*m,xyz
@@ -163,15 +211,14 @@ void MC(spin* sp)
             if(costheta<-1) costheta=-2-costheta;
             sp0.theta=acos(costheta); //生成下一采样   
             
-          //  double x1[3]={0,0,0};double x2[3]={0,0,0};double x3[3]={0,0,0};double x4[3]={0,0,0};
-            double x5[3]={0,0,0};double x6[3]={0,0,0};double x7[3]={0,0,0};double x8[4]={0,0,0};
-            double Dr[3]={1,0,0};double Dl[3]={-1,0,0};double Du[3]={0,1,0};double Dd[3]={0,-1,0};
+          //  
+            
             double de=0;//能量变化 new-old
             de-=J*(dot(sp[k],sp[L*i+(j+1)%L])+dot(sp[k],sp[(k+L)%(L*L)])+dot(sp[k],sp[L*i+(L+j-1)%L])+dot(sp[k],sp[(k-L+L*L)%(L*L)]));
-        //    de-=dot(Dr,cross(sp[k],sp[L*i+(j+1)%L],x5))+dot(Du,cross(sp[k],sp[(k+L)%(L*L)],x6))+dot(Dl,cross(sp[k],sp[L*i+(L+j-1)%L],x7))+dot(Dd,cross(sp[k],sp[(k-L+L*L)%(L*L)],x8));
+            de-=cross(sp[k],sp[L*i+(j+1)%L],x5)[0]+cross(sp[k],sp[(k+L)%(L*L)],x6)[1]-cross(sp[k],sp[L*i+(L+j-1)%L],x7)[0]-cross(sp[k],sp[(k-L+L*L)%(L*L)],x8)[1];
             de-=hz*cos(sp[k].theta);
             de+=J*(dot(sp0,sp[L*i+(j+1)%L])+dot(sp0,sp[(k+L)%(L*L)])+dot(sp0,sp[L*i+(L+j-1)%L])+dot(sp0,sp[(k-L+L*L)%(L*L)]));
-        //    de+=dot(Dr,cross(sp0,sp[L*i+(j+1)%L],x5))+dot(Du,cross(sp0,sp[(k+L)%(L*L)],x6))+dot(Dl,cross(sp0,sp[L*i+(L+j-1)%L],x7))+dot(Dd,cross(sp0,sp[(k-L+L*L)%(L*L)],x8));
+            de+=cross(sp0,sp[L*i+(j+1)%L],x5)[0]+cross(sp0,sp[(k+L)%(L*L)],x6)[1]-cross(sp0,sp[L*i+(L+j-1)%L],x7)[0]-cross(sp0,sp[(k-L+L*L)%(L*L)],x8)[1];
             de+=hz*cos(sp0.theta);
 
             if(de<0||exp(-de/(kb*T))*RAND_MAX>rand())
@@ -200,6 +247,7 @@ void MC(spin* sp)
     ofstream file1;
     file1.open("Heisenberg.dat",ios::app);
     file1<<T<<' '<<hz<<' '<<Se<<' '<<cp<<' '<<Me[0]<<' '<<Me[1]<<' '<<Me[2]<<' '<<1.0*accept/MN/(L*L)<<endl;
+    cout<<T<<' '<<hz<<' '<<Se<<' '<<cp<<' '<<Me[0]<<' '<<Me[1]<<' '<<Me[2]<<' '<<1.0*accept/MN/(L*L)<<endl;
     file1.close();
 }
 
@@ -215,6 +263,26 @@ int main()
         cout<<T<<endl;
         MC(sp);
     }
-    
+
+/*
+    double x[3]={0,0,0};
+    ofstream file1;
+    file1.open("text.dat",ios::out);
+    for(int i=0;i<10000;i++)
+    {
+        sp.phi=2*Pi*rand()/RAND_MAX;  //对 phi 随即初始化
+        sp.theta=acos(2.0*rand()/RAND_MAX-1);
+        rpt2xyz(sp,x);
+        file1<<x[0]<<' '<<x[1]<<' '<<x[2]<<endl;
+    } 
+    double x1[3]={0,1,1};
+    double x2[3]={1,0,-2};
+    spin spp;
+    spp.phi=Pi/3;
+    spp.theta=Pi/6;
+    rpt2xyz(spp,x);
+    cout<<x[0]<<' '<<x[1]<<' '<<x[2]<<endl;
+    cout<<dot(x1,x2)<<endl; */
+ //   file1.close();
     return 0;
 }
