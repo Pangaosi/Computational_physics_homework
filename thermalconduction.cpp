@@ -3,66 +3,192 @@
 #include<cmath>
 #include<cstdlib>
 #include<time.h>
+#include<fftw3.h>
 
 using namespace std;
 
+//è’™å¡å‚æ•°
 const double Pi=4*atan(1);
-const double MildRand=100000000.0/RAND_MAX;//
-const int ToT=10000;//×ÜÊ±¼ä¼ä¸ôÊıÁ¿
-const double dt=1e-4;
+//const double MildRand=100000000.0/RAND_MAX;//
+const int ToT=10000000;//ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ æ€»æ—¶é—´é—´éš”æ•°
+const double dw=2000.0;
+const double dt=1e-5;
 const int L=1<<6;
-const double k;//Boltzman 
-const double dd;//¾§¸ñ¼ä¾à
-// double A[4][L][L] Êı×é´æ·Å¾§¸ñÄÚÔ­×ÓÎ»ÖÃÒÔ¼°ËÙ¶ÈĞÅÏ¢ 
-// A[0][i][j] vx, A[1][i][j] vy; A[2][i][j] x; A[3][i][j] y;
 
+// æ™¶æ ¼å‚æ•°
+const double m=1e-26;//è´¨é‡
+const double kb=1.38e-23;//Boltzman 
+const double dd=1e-11;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ æ™¶æ ¼è·ç¦»ä¸€åŠ
+const double k2=0.5;//FPUåŠ¿èƒ½å‚æ•° k/2
+const double b4=0.3/4;//FPUåŠ¿èƒ½å‚æ•° b/4 Vï¼ˆr)=k/2*r*r+b/3*x*x*x*x;
+ //double A[2][L] ;//ï¿½ï¿½ï¿½ï¿½ï¿½Å¾ï¿½ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½Î»ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½Ù¶ï¿½ï¿½ï¿½Ï¢  
+// A[0][i] vx, A[1][i] x; 
 
-void initial(double A[4][L][L],double T0)
-{
-    double de=0;
-    double vx,vy,x,y;
-    for(int i=0;i<L;i++)
-    {
-        for(int j=0;j<L;j++)
-        {
-            A[0][i][j]=MildRand*rand();//ËÙ¶È·¶Î§´Ó0-inf ;/RAND_MAX ÊÇÎªÁËÈ¡µÃ·ÇÕûÊıÖµ
-            A[1][i][j]=MildRand*rand();
-            A[2][i][j]=dd*1.0*rand()/RAND_MAX;
-            A[3][i][j]=dd*1.0*rand()/RAND_MAX;
-        }
-    }
-    for(int i=0;i<L;i++)
-    {
-        for(int j=0;j<L;j++)
-        {
-            vx=MildRand*rand();//ËÙ¶È·¶Î§´Ó0-inf ;/RAND_MAX ÊÇÎªÁËÈ¡µÃ·ÇÕûÊıÖµ
-            vy=MildRand*rand();
-            x=dd*1.0*rand()/RAND_MAX;
-            y=dd*1.0*rand()/RAND_MAX;
+//åˆ†å­åŠ¨åŠ›å­¦å‚æ•°
+const double h=1e-13;//æ±‚å€’é—´éš”
 
-            de=
-            
-        }
-    }
+double derv(double (*f)(double),double x)
+{   
+    return (f(x+h)-f(x-h))/(2*h);
 }
 
-void heatsides(double A[4][L][L],double Tl,double Tr,double Td,double Tu) //ÉÏÏÂ×óÓÒ±ßÎÂ¶È¼ÓÈÈÖÁ¹æ¶¨ÎÂ¶È
+double derv2(double (*f)(double),double x)
 {
-    double vx,vy,x,y;
-    for(int i=0;i<L;i++) //ËÙ¶È
+    return (f(x+h)+f(x-h)-2*f(x))/(h*h);
+}
+
+double derv3(double (*f)(double),double x)
+{
+    
+    return (f(x+h)-f(x)-h*derv(f,x)-0.5*h*h*derv2(f,x))/(h*h*h);
+}
+
+
+double H0(double r) //  H=V(r) èƒ½é‡
+{
+    return k2*r*r+b4*r*r*r*r;
+}
+
+void log(double accept,double T)
+{
+    ofstream file1("log.dat",ios::app);
+    
+    file1<<"<1> the rate of acception: "<< 100.0*accept<<"% "<<"Temperature: "<<T<<endl;
+    file1.close();
+    
+}
+
+void Randdis(double A[2][L])        // éšå³åˆå§‹åŒ–
+{
+   for(int p=0;p<L;p++)    //æ¯ä¸ªç‚¹åˆå§‹åŒ–
     {
-        vx=10000000.0*rand()/RAND_MAX;
-        vy=10000000.0*rand()/RAND_MAX;
-        x=dd*1.0*rand()/RAND_MAX;
-        y=dd*1.0*rand()/RAND_MAX;
+        
+        A[0][p]=40000.0*rand()/RAND_MAX-20000.0;// v
+        A[1][p]=dd*(2.0*rand()/RAND_MAX-1); //æ™¶æ ¼ä¸­å¿ƒä¸ºåæ ‡ç³»O  , x
+    }  
+}
+
+void initial(double A[2][L],double T0)  //æŒ‰ç…§æ³¢å°”å…¹æ›¼åˆ†å¸ƒåˆå§‹åŒ–,å¹¶ä¸”è®°å½•log
+{
+    double de=0;
+    double vx,x;
+    double ek=0;
+    int accept=0;
+    Randdis(A);  
+    
+
+    for(int j=0;j<20000;j++)  //ä½¿é“¾æŒ‰ç…§æ¸©åº¦T0çš„æ³¢å°”å…¹æ›¼åˆ†å¸ƒ
+    {
+        for(int q=0;q<L;q++)
+        {
+            int i;
+            i=rand()%L;
+            double v0=A[0][i];
+            double rr0=A[1][(i+1)%L]-A[1][i]+2*dd;
+            double rl0=A[1][i]-A[1][(i-1+L)%L]+2*dd;
+            vx=A[0][i]+dw*(2.0*rand()/RAND_MAX-1);
+            if(vx>20000)vx-=40000;if(vx<-20000)vx+=40000;//ï¿½Ù¶È·ï¿½Î§ï¿½ï¿½0-inf ;/RAND_MAX ï¿½ï¿½Îªï¿½ï¿½È¡ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+           
+            x=A[1][i]+dd*(2.0*rand()/RAND_MAX-1);
+            if(x>dd) x-=2*dd;else if(x<-dd) x+=2*dd;   
+       
+            double rr1=A[1][(i+1)%L]-x+2*dd;
+            double rl1=x-A[1][(i-1+L)%L]+2*dd;
+        
+            de=0.5*m*(vx*vx-v0*v0)-H0(rr0)-H0(rl0)+H0(rr1)+H0(rl1);  
+        
+            if(de<0||exp(-de/kb/T0)*RAND_MAX>rand())
+            {
+                A[0][i]=vx;
+                A[1][i]=x;
+                accept++;
+            }
+            
+        }
+        if(j>4000)
+            {
+                for(int pp=0;pp<L;pp++)
+                ek+=0.5*m*A[0][pp]*A[0][pp];
+            }
+    }
+    log(1.0*accept/20000/L,ek*2.0/kb/16000.0/L);
+    
+}
+
+void heat(double A[2][L],int i,double T1) // åŠ çƒ­ç¬¬iä¸ªåŸå­è‡³ T1
+{
+    double vx,x;
+    double v0,x0;
+    v0=A[0][i];
+    x0=A[1][i];
+    vx=v0+dw*(2.0*rand()/RAND_MAX-1.0);
+    if(vx>20000)vx-=40000;if(vx<-20000)vx+=40000;
+    x=x0+dd*(2.0*rand()/RAND_MAX-1);
+    if(x>dd) x-=2*dd;else if(x<-dd) x+=2*dd;  
+
+    double rr0=A[1][(i+1)%L]-A[1][i]+2*dd;
+    double rl0=A[1][i]-A[1][(i-1+L)%L]+2*dd;
+
+    double rr1=A[1][(i+1)%L]-x+2*dd;
+    double rl1=x-A[1][(i-1+L)%L]+2*dd;
+
+    
+    double de=0.5*m*(vx*vx-v0*v0)-H0(rr0)-H0(rl0)+H0(rr1)+H0(rl1);
+
+    if(de<0||exp(-de/kb/T1)*RAND_MAX>rand())
+    {
+        A[0][i]=vx;
+        A[1][i]=x;
+    }
+
+
+}
+
+
+void MoleDynamics(double A[2][L],double T0,double Tl)// é¦–æ¸©åº¦ T0ï¼Œå°¾æ¸©åº¦Tl
+{
+    double dt1=dt;
+    double dt2=dt1*dt/2.0;
+    double dt3=dt2*dt/3.0;
+    double dt4=dt3*dt/4.0;
+    double x0[L-2];
+    for(int t=0;t<ToT;t++)
+    {   
+        heat(A,0,T0);
+        heat(A,L,Tl);
+        double x[L-2],v[L-2];
+        for(int p=1;p<L-1;p++)
+        {   
+            v[p-1]=A[0][p];
+            x[p-1]=A[1][p];
+            double rr=A[1][(p+1)%L]-x[p-1]+2*dd;
+            double rl=x[p-1]-A[1][(p-1+L)%L]+2*dd;
+            double x1=v[p-1];
+            double v1=1.0/m*(-derv(H0,rr)+derv(H0,rl));
+            double v2=1.0/m*(-derv2(H0,rr)+derv2(H0,rl));
+            x[p-1]=A[1][p]+x1*dt1+v1*dt2;
+            v[p-1]=A[0][p]+v1*dt1+v2*dt2;
+        }
+        for(int q=1;q<L-1;q++)
+        {
+            A[0][q]=v[q-1];
+            A[1][q]=x[q-1];
+        }
+
     }
 }
 
 int main()
 {
+    srand((unsigned)time(NULL));
+   
+   double A[2][L];
+   initial(A,200);
+    double ek=0;
+    MoleDynamics(A,300,100);
+  
    
 
-    
-  system("pause");
+//  system("pause");
     return 0;
 }
