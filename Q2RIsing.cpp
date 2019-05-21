@@ -10,20 +10,20 @@ using namespace std;
 
 
 //1. 仿真步长
-const int ToT=20000000;
-const int PoT=10000000;
-const int NoT=100;
+const int ToT=200000;
+const int PoT=2000;
+const int NoT=1200;
 
 //2.材料性质
 const double J=1;
-const int N=6;
+const int N=16;
 
-int PRN()
+int PRN(int k)
 {
    // return 2*(rand()%2)-1;
     
-    int i=rand()%23;
-    if(i>4)
+    int i=rand()%k;
+    if(i>50)
     return -1;
     else
     return 1;
@@ -73,11 +73,11 @@ int Descend(int A[N][N])
 }
 
 
-void Log(int A[N][N],int t)
+void Log(int A[N][N])
 {
 
     ofstream file1("CellIsing.dat",ios::app);
-    file1<<"<"<<t<<">---------------------energy: "<<Energy(A)<<"----------------------Magnitization: "<<Magnitization(A)<<endl;
+    file1<<"--------------------energy: "<<Energy(A)<<"----------------------Magnitization: "<<Magnitization(A)<<endl;
     for( int i=0;i<N;i++)
     {
         for(int j=0;j<N;j++)
@@ -96,16 +96,16 @@ void initial(int A[N][N],int t)
     {
         for(int j=0;j<N;j++)
         {
-            A[i][j]=PRN();
+            A[i][j]=PRN(t);
         }
     }
-    Log(A,t);
+    Log(A);
 }
 
 int Search(double F[NoT],double e)
 {   
     int flag;
-    int ee=int(e)+72;//e:-80~80, ee:0~1000
+    int ee=int(e)+512;//e:-80~80, ee:0~1000
     if (F[ee]==1)
     {
         flag=0;
@@ -132,7 +132,7 @@ void Cell(int A[N][N])
                 e0=A[(i+1)%N][j]+A[(i-1+N)%N][j]+A[i][(j+1)%N]+A[i][(j-1+N)%N];
                 if(e0==0)
                 {
-                     A[i][j]*=-1*(2*(rand()%2)-1);
+                     A[i][j]*=-1;//*(2*(rand()%2)-1);
                 }
             }
         }
@@ -146,7 +146,7 @@ void Cell(int A[N][N])
                 e0=A[(i+1)%N][j]+A[(i-1+N)%N][j]+A[i][(j+1)%N]+A[i][(j-1+N)%N];
                 if(e0==0)
                 {
-                     A[i][j]*=-1*(2*(rand()%2)-1);
+                     A[i][j]*=-1;//*(2*(rand()%2)-1);
                 }
             }
         }
@@ -167,10 +167,11 @@ void Run(int A[N][N])
     {  double  m=0;
         int flag;
     //    Descend(A);
-    initial(A,p);
+    initial(A,p+25);
     flag=Search(Ek,Energy(A));
     if(flag==1)    
-    {        for(int i=0;i<ToT;i++)
+    { 
+            for(int i=0;i<ToT;i++)
             {
                 Cell(A);
 
@@ -212,6 +213,20 @@ int main()
             m+=Magnitization(A);
         }
         cout<<1.0*m/ToT<<endl;
+    } */
+//    initial(A,39);
+
+    /*
+    cout<<Energy(A)<<endl;
+    double m=0;
+    for( int j=0;j<20;j++)
+    {m=0;
+    for(int i=0;i<10000;i++)
+    {   
+        Cell(A);
+        m+=Magnitization(A);
+    }
+    cout<<1.0*m/10000<<endl;
     } */
     Run(A);
     return 0;
